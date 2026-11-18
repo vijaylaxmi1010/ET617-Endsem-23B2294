@@ -12,6 +12,7 @@ function defaultState() {
     version: 1,
     createdAt: Date.now(),
     currentScreen: "#/welcome",
+    lastMeaningfulScreen: null,
     profile: {
       level: "Standard", // 'Standard' | 'Advanced'
       diagnostic: null, // { q1, q1Correct, q1Confidence, q2, q2Correct, q2Confidence, m2Suspected }
@@ -94,7 +95,15 @@ export function resetState() {
 
 export function hasSavedProgress() {
   const s = loadState();
-  return s.runs.length > 0 || s.hypotheses.length > 0 || Object.keys(s.tasks).length > 0;
+  // Completing the diagnostic already counts as progress — a learner who's
+  // past it but hasn't saved a hypothesis/run/task yet should still resume
+  // into the flow, not get bounced back to redo the diagnostic.
+  return (
+    s.runs.length > 0 ||
+    s.hypotheses.length > 0 ||
+    Object.keys(s.tasks).length > 0 ||
+    !!s.profile.diagnostic
+  );
 }
 
 // --- Screen-time tracking ----------------------------------------------
@@ -102,6 +111,14 @@ export function markScreenEnter(hash) {
   const s = loadState();
   s.screenEnteredAt = Date.now();
   s.currentScreen = hash;
+  // Tracked separately from currentScreen: the Welcome screen needs to know
+  // where the learner was *before* arriving at Welcome in order to offer a
+  // resume link, but by the time Welcome's own code runs, currentScreen has
+  // already been overwritten to "#/welcome" by this same function. So we
+  // keep a second field that only advances on non-welcome screens.
+  if (hash !== "#/welcome") {
+    s.lastMeaningfulScreen = hash;
+  }
   saveState();
 }
 

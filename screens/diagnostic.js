@@ -121,6 +121,16 @@ function finishDiagnostic(root) {
   root.innerHTML = `
     <div class="screen">
       <h1>Your starting level</h1>
+
+      <div class="card">
+        <p class="box ${q1Correct ? "box--success" : "box--warning"}" style="margin:0 0 10px;">
+          <strong>Q1:</strong> you answered <strong>${answers.q1}</strong> — ${q1Correct ? "✓ Correct" : `✗ Not quite (correct answer: ${DIAGNOSTIC.Q1.correct})`}
+        </p>
+        <p class="box ${q2Correct ? "box--success" : "box--warning"}" style="margin:0;">
+          <strong>Q2:</strong> you answered <strong>${answers.q2}</strong> — ${q2Correct ? "✓ Correct" : `✗ Not quite (correct answer: ${DIAGNOSTIC.Q2.correct})`}
+        </p>
+      </div>
+
       <div class="box ${bothCorrectHighConfidence ? "box--success" : "box--info"}">
         <strong>Profile: ${s.profile.level}</strong>
         <p>${

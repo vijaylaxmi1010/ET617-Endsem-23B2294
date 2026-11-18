@@ -13,19 +13,21 @@ const SCREEN_NAMES = {
 
 export default function renderWelcome(root) {
   const s = loadState();
-  const resume = hasSavedProgress() && s.currentScreen && s.currentScreen !== "#/welcome";
-  const resumeName = SCREEN_NAMES[s.currentScreen] || "where you left off";
+  // "Resume" means there's real progress to go back to — not just having
+  // visited the diagnostic result page once. The main CTA below adapts to
+  // this so it never silently re-does a step the learner already finished.
+  // Uses lastMeaningfulScreen, not currentScreen — by the time this screen's
+  // code runs, the router has already set currentScreen to "#/welcome".
+  const lastScreen = s.lastMeaningfulScreen;
+  const resume = hasSavedProgress() && lastScreen && lastScreen !== "#/diagnostic";
+  const resumeName = SCREEN_NAMES[lastScreen] || "where you left off";
 
   root.innerHTML = `
     <div class="screen">
       ${
         resume
           ? `<div class="box box--info resume-banner" role="status">
-              <span>👋 <strong>Welcome back!</strong> Continue from ${resumeName}.</span>
-              <span style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn btn--primary" id="resumeBtn">Continue</button>
-                <button class="btn btn--ghost" id="startOverBtn">Start over</button>
-              </span>
+              👋 <strong>Welcome back!</strong> You last left off at ${resumeName}. Use the button below to pick up right there.
             </div>`
           : ""
       }
@@ -43,22 +45,18 @@ export default function renderWelcome(root) {
       <p>You'll set up your own experiments, build a hypothesis, test it against real trajectory data, and defend your reasoning against an Olympiad-style challenge — no one is going to hand you the formula and walk away. <strong>Can you beat the flag? Prove it with data.</strong></p>
 
       <div class="btn-row">
-        <span class="spacer"></span>
-        <button class="btn btn--primary" id="startBtn" style="font-size:1.05rem; padding:14px 26px;">Start the mission</button>
+        ${resume ? `<button class="btn btn--ghost" id="startOverBtn">Start over</button>` : `<span class="spacer"></span>`}
+        <button class="btn btn--primary" id="startBtn" style="font-size:1.05rem; padding:14px 26px;">${resume ? "Continue the mission" : "Start the mission"}</button>
       </div>
     </div>
   `;
 
   document.getElementById("startBtn").addEventListener("click", () => {
-    location.hash = "#/diagnostic";
+    // Pick up exactly where this learner left off; only a brand-new learner
+    // (no progress at all) goes to the diagnostic.
+    location.hash = resume ? lastScreen : "#/diagnostic";
   });
 
-  const resumeBtn = document.getElementById("resumeBtn");
-  if (resumeBtn) {
-    resumeBtn.addEventListener("click", () => {
-      location.hash = s.currentScreen;
-    });
-  }
   const startOverBtn = document.getElementById("startOverBtn");
   if (startOverBtn) {
     startOverBtn.addEventListener("click", () => {

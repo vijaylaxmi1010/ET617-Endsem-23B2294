@@ -5,6 +5,21 @@
 // keeps this file self-contained and easy to tweak live in a viva).
 import { loadState, markGraphBViewed } from "../state.js";
 
+// Variables a learner can plot against each other in the free-choice
+// explorer (Graph D). `get` derives the value from a stored run record.
+const PLOT_VARS = [
+  { key: "theta", label: "Angle θ (°)", get: (r) => r.theta },
+  { key: "v", label: "Speed v (m/s)", get: (r) => r.v },
+  { key: "vSquared", label: "Speed² v² (m²/s²)", get: (r) => r.v * r.v },
+  { key: "m", label: "Mass m (kg)", get: (r) => r.m },
+  { key: "h", label: "Launch height h (m)", get: (r) => r.h },
+  { key: "g", label: "Gravity g (m/s²)", get: (r) => r.g },
+  { key: "F", label: "Wind force F (N)", get: (r) => r.F },
+  { key: "R", label: "Range R (m)", get: (r) => r.R },
+  { key: "H", label: "Max height H (m)", get: (r) => r.H },
+  { key: "T", label: "Flight time T (s)", get: (r) => r.T },
+];
+
 export default function renderGraph(root) {
   const s = loadState();
   markGraphBViewed(); // §8: O3 requires "the Graph B line viewed"
@@ -45,6 +60,17 @@ export default function renderGraph(root) {
         <p id="graphCEmpty" class="box box--warning" hidden>Run fair angle sweeps at F = −2, 0 and +2 N to see this graph.</p>
       </div>
 
+      <div class="card graph-card">
+        <h2>Graph D — Explorer: pick any two variables</h2>
+        <p class="lede">Not filtered — every run you've logged is plotted. Useful for spotting a relationship the fixed graphs above don't show directly.</p>
+        <div class="field inline-fields">
+          <div><label for="gdX">X axis</label><select id="gdX">${PLOT_VARS.map((v) => `<option value="${v.key}">${v.label}</option>`).join("")}</select></div>
+          <div><label for="gdY">Y axis</label><select id="gdY">${PLOT_VARS.map((v, i) => `<option value="${v.key}" ${i === 7 ? "selected" : ""}>${v.label}</option>`).join("")}</select></div>
+        </div>
+        <canvas id="graphDCanvas" width="700" height="260" role="img" aria-label="Scatter plot of two learner-chosen variables from the run data"></canvas>
+        <p id="graphDEmpty" class="box box--warning" hidden>Log at least 2 runs in the Lab to use the explorer.</p>
+      </div>
+
       <div class="btn-row">
         <button class="btn btn--secondary" id="backBtn">Back to Lab</button>
         <button class="btn btn--primary" id="toChallengeBtn">Take the challenge</button>
@@ -53,6 +79,7 @@ export default function renderGraph(root) {
   `;
 
   document.getElementById("backBtn").addEventListener("click", () => { location.hash = "#/lab"; });
+  setupGraphD(s.runs);
   document.getElementById("toChallengeBtn").addEventListener("click", () => { location.hash = "#/challenge"; });
 
   setupGraphA(s.runs);
@@ -247,6 +274,59 @@ function drawGraphC(runs) {
     ctx.fillStyle = colors[F];
     ctx.font = "bold 11px sans-serif";
     ctx.fillText(`F=${F}N`, lx + 6, ly);
+  });
+}
+
+// --- Graph D: free-choice explorer (any variable vs any variable) ---------
+function setupGraphD(runs) {
+  const xSel = document.getElementById("gdX");
+  const ySel = document.getElementById("gdY");
+  function redraw() {
+    drawGraphD(runs, xSel.value, ySel.value);
+  }
+  [xSel, ySel].forEach((el) => el.addEventListener("change", redraw));
+  redraw();
+}
+
+function drawGraphD(runs, xKey, yKey) {
+  const canvas = document.getElementById("graphDCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const emptyEl = document.getElementById("graphDEmpty");
+
+  if (runs.length < 2) {
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+
+  const xVar = PLOT_VARS.find((v) => v.key === xKey);
+  const yVar = PLOT_VARS.find((v) => v.key === yKey);
+  const pts = runs.map((r, i) => ({ x: xVar.get(r), y: yVar.get(r), run: i + 1 }));
+
+  const pad = 44;
+  const xMin = Math.min(0, ...pts.map((p) => p.x));
+  const xMax = Math.max(...pts.map((p) => p.x)) * 1.1 || 1;
+  const yMin = Math.min(0, ...pts.map((p) => p.y));
+  const yMax = Math.max(...pts.map((p) => p.y)) * 1.1 || 1;
+  const toXY = (x, y) => [
+    pad + ((x - xMin) / (xMax - xMin)) * (canvas.width - pad * 2),
+    canvas.height - pad - ((y - yMin) / (yMax - yMin)) * (canvas.height - pad * 2),
+  ];
+
+  drawAxes(ctx, canvas, pad, xVar.label, yVar.label, xMin, xMax, yMin, yMax);
+
+  // Dots only (an arbitrary pair of variables may not have a meaningful
+  // left-to-right ordering, so we don't connect them with a line).
+  pts.forEach((p) => {
+    const [x, y] = toXY(p.x, p.y);
+    ctx.fillStyle = "#1f5fae";
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   });
 }
 
