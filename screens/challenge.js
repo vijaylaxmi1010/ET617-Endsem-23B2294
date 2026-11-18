@@ -338,6 +338,12 @@ function renderT5(body, task) {
     document.getElementById("t5Attempts").textContent = `Attempt ${attempts}: landed at ${sim.R.toFixed(2)} m.`;
 
     setTask("T5", { status: hit ? "done" : t.status, attempts, correct: hit, lastAnswer: `θ=${theta}°` });
+    if (hit) {
+      // Completing T5 is the other documented way (besides Advanced profile)
+      // to unlock the Lab's launch-height slider — honour that here.
+      s.unlocks.height = true;
+      saveState();
+    }
     recomputeOutcomes();
     renderMissionList();
 

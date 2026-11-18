@@ -344,7 +344,12 @@ export default function renderLab(root, opts) {
   if (!lab.olyUnlocked) { lab.g = G_PRESETS.Earth; lab.gName = "Earth"; lab.F = 0; }
   if (!lab.expUnlocked) lab.k = 0;
 
-  const ghosts = s.runs.slice(-3);
+  // Stored runs only keep summary numbers (R/H/T), not the full trajectory
+  // (to keep localStorage small) — re-simulate each one here so ghost trails
+  // still draw correctly after navigating away from the Lab and back.
+  const ghosts = s.runs.slice(-3).map((r) => ({
+    points: simulate({ theta: r.theta, v: r.v, m: r.m, h: r.h, g: r.g, F: r.F, windMode: r.windMode, k: r.k }).points,
+  }));
 
   root.innerHTML = `
     <div class="screen">
