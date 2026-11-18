@@ -107,6 +107,12 @@ export function hasSavedProgress() {
 }
 
 // --- Screen-time tracking ----------------------------------------------
+// Screens that are actually part of the learner's mission flow — i.e. valid
+// places for the Welcome screen's "Continue the mission" button to resume
+// into. Teacher and About are real screens but aren't "where the learner
+// left off" in any sense that button should ever act on.
+const MISSION_SCREENS = ["#/diagnostic", "#/hypothesis", "#/lab", "#/graph", "#/challenge", "#/reflect"];
+
 export function markScreenEnter(hash) {
   const s = loadState();
   s.screenEnteredAt = Date.now();
@@ -115,8 +121,10 @@ export function markScreenEnter(hash) {
   // where the learner was *before* arriving at Welcome in order to offer a
   // resume link, but by the time Welcome's own code runs, currentScreen has
   // already been overwritten to "#/welcome" by this same function. So we
-  // keep a second field that only advances on non-welcome screens.
-  if (hash !== "#/welcome") {
+  // keep a second field that only advances on actual mission screens —
+  // never Welcome itself, and never Teacher/About, which aren't part of
+  // the learner's mission progress.
+  if (MISSION_SCREENS.includes(hash)) {
     s.lastMeaningfulScreen = hash;
   }
   saveState();

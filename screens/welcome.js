@@ -20,7 +20,7 @@ export default function renderWelcome(root) {
   // code runs, the router has already set currentScreen to "#/welcome".
   const lastScreen = s.lastMeaningfulScreen;
   const resume = hasSavedProgress() && lastScreen && lastScreen !== "#/diagnostic";
-  const resumeName = SCREEN_NAMES[lastScreen] || "where you left off";
+  const resumeName = SCREEN_NAMES[lastScreen] || "your last screen";
 
   root.innerHTML = `
     <div class="screen">
