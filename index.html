@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RangeLab — Projectile Motion Virtual Lab</title>
+  <meta name="description" content="RangeLab: an inquiry-based virtual laboratory on projectile motion for Olympiad-level Class 11 learners." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <header class="app-header">
+    <div class="app-header__brand">
+      <span class="app-header__logo" aria-hidden="true">🚀</span>
+      <span class="app-header__title">RangeLab</span>
+    </div>
+
+    <nav class="stepper" id="stepper" aria-label="Lesson progress">
+      <!-- populated by router.js -->
+    </nav>
+
+    <div class="role-switch" id="roleSwitch">
+      <button type="button" class="role-switch__btn is-active" id="roleLearnerBtn" aria-pressed="true">Learner</button>
+      <button type="button" class="role-switch__btn" id="roleTeacherBtn" aria-pressed="false">Teacher</button>
+    </div>
+  </header>
+
+  <!-- Inline PIN prompt (never window.prompt) -->
+  <div id="pinModal" class="modal" hidden>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
+      <h2 id="pinModalTitle">Teacher access</h2>
+      <p>Enter the teacher PIN to continue.</p>
+      <label for="pinInput" class="sr-only">Teacher PIN</label>
+      <input type="password" inputmode="numeric" id="pinInput" maxlength="6" placeholder="PIN" autocomplete="off" />
+      <p id="pinError" class="field-error" hidden>Incorrect PIN. Try again.</p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--secondary" id="pinCancelBtn">Cancel</button>
+        <button type="button" class="btn btn--primary" id="pinSubmitBtn">Enter</button>
+      </div>
+    </div>
+  </div>
+
+  <main id="main" class="app-main">
+    <div id="app"><!-- screens render here --></div>
+  </main>
+
+  <footer class="app-footer">
+    <p>ET 617 End-Sem · Roll No. 23B2294 · RangeLab</p>
+  </footer>
+
+  <script type="module" src="router.js"></script>
+</body>
+</html>
