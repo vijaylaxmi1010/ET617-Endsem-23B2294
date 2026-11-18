@@ -44,6 +44,8 @@ function defaultState() {
     screenEnteredAt: null,
     nudges: {}, // taskId -> shown boolean
     demoMode: null,
+    graphBViewed: false,
+    consecutiveIncorrect: 0,
   };
 }
 
@@ -190,6 +192,14 @@ export function updateAiLogDecision(id, decision) {
     saveState();
   }
   return entry;
+}
+
+// --- Consecutive-incorrect tracking (adaptivity §8 prerequisite trigger) --
+export function recordAnswerCorrectness(correct) {
+  const s = loadState();
+  s.consecutiveIncorrect = correct ? 0 : (s.consecutiveIncorrect || 0) + 1;
+  saveState();
+  return s.consecutiveIncorrect;
 }
 
 // --- Outcome evaluation (adaptivity §8) -----------------------------------
