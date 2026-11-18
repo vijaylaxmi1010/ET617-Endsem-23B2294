@@ -183,9 +183,10 @@ legend { font-weight: 700; padding: 0 4px; }
 .slider-control__lock { font-size: 0.82rem; color: var(--color-text-muted); margin-top: 4px; }
 
 /* ---- Lab layout ---- */
-.lab-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.lab-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.lab-grid > * { min-width: 0; } /* prevent wide children (e.g. the data table) from stretching the grid track */
 @media (min-width: 880px) {
-  .lab-grid { grid-template-columns: 340px 1fr; }
+  .lab-grid { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); }
 }
 .lab-canvas-wrap { position: relative; }
 #labCanvas {
@@ -221,8 +222,9 @@ table.data-table tr.is-starred { background: #fff8e8; }
 .task-status--locked { background: #eef1f5; color: var(--color-text-muted); }
 
 /* ---- Teacher view ---- */
-.teacher-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-@media (min-width: 900px) { .teacher-grid { grid-template-columns: 1fr 1fr; } }
+.teacher-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.teacher-grid > * { min-width: 0; }
+@media (min-width: 900px) { .teacher-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .queue-item { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px; margin: 10px 0; }
 .queue-item__actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
@@ -236,6 +238,7 @@ table.data-table tr.is-starred { background: #fff8e8; }
 
 /* ---- Modal ---- */
 .modal { position: fixed; inset: 0; background: rgba(10, 16, 24, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal[hidden] { display: none; }
 .modal__card { background: #fff; border-radius: var(--radius); padding: 20px; max-width: 360px; width: 100%; }
 .modal__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 

@@ -68,6 +68,7 @@ function scenarioA() {
   let prev = null;
   angles.forEach((theta) => {
     const run = makeRun({ theta, v: 20, m: 1, h: 0, g: 9.8, prevRun: prev });
+    run.starred = theta === 45 || theta === 30 || theta === 60; // evidence for the complementary-pair + peak claim
     addRun(run);
     prev = run;
   });
@@ -96,6 +97,7 @@ function scenarioA() {
 
   // T5 cliff target challenge: Advanced learner goes almost straight for the optimum.
   const t5run1 = makeRun({ theta: 28, v: 15, m: 1, h: 30, g: 9.8, prevRun: prev, taskId: "T5", target: { flag: 43, tolerance: 1 } });
+  t5run1.starred = true; // evidence that below-45° wins from a height
   addRun(t5run1);
   prev = t5run1;
   setTask("T5", { status: "done", attempts: 1, correct: true, lastAnswer: "No — 45° would land short. I tried lower angles close to 28° instead." });
@@ -155,6 +157,7 @@ function scenarioB() {
 
   // First attempt at the cliff target: fires at 45°, as the (flawed) hypothesis predicts.
   const run1 = makeRun({ theta: 45, v: 15, m: 1, h: 30, g: 9.8, prevRun: null, taskId: "T5", target: { flag: 43, tolerance: 1 } });
+  run1.starred = true; // evidence that the 45°-always rule failed off the cliff
   addRun(run1);
   setTask("T5", { status: "open", attempts: 1, correct: false, lastAnswer: "Yes, 45° should be the best angle — that's always true." });
   flagMisconception("M1", `Run at θ=45°, h=30 m landed at ${run1.R} m, short of the 43 m flag — the learner's hypothesis assumed 45° is always optimal.`);
@@ -165,6 +168,7 @@ function scenarioB() {
 
   // Second attempt: learner tries a lower angle and hits the flag.
   const run2 = makeRun({ theta: 30, v: 15, m: 1, h: 30, g: 9.8, prevRun: run1, taskId: "T5", target: { flag: 43, tolerance: 1 } });
+  run2.starred = true; // evidence that a lower angle beat 45° off the cliff
   addRun(run2);
   setTask("T5", { status: "done", attempts: 2, correct: run2.hit, lastAnswer: "Trying a lower angle because the first one fell short." });
 

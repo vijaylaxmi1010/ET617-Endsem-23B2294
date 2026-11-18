@@ -332,7 +332,7 @@ export const ADAPTIVITY = {
 export const PREREQ_CARD = {
   title: "Resolving a velocity into components",
   body:
-    "Any launch velocity v at angle θ can be split into two independent parts: the horizontal part v\u1d6xx = v·cosθ and the vertical part vᵧ = v·sinθ. Drag the vector below and watch the two components change.",
+    "Any launch velocity v at angle θ can be split into two independent parts: the horizontal part vx = v·cosθ and the vertical part vy = v·sinθ. Drag the vector below and watch the two components change.",
 };
 
 // --- Demo mode (scenarios for the viva) -------------------------------------
