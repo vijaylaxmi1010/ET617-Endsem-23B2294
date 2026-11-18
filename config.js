@@ -141,6 +141,41 @@ export const HINT_LADDER_TITLES = {
   M4: "Does mass matter once there's wind?",
 };
 
+// Human-readable explanations of each misconception code, for the teacher
+// view (and anywhere else a bare "M1"/"MASS" tag would otherwise mean
+// nothing to someone who hasn't memorised the exam brief).
+export const MISCONCEPTION_LABELS = {
+  M1: {
+    name: "M1 — “45° is always best”",
+    description:
+      "Believes 45° always gives the maximum range, even when launching from a height. It's true on level ground, but the optimal angle drops below 45° once there's a launch height, because the ball already gets extra time in the air.",
+  },
+  M2: {
+    name: "M2 — “Velocity is zero at the top”",
+    description:
+      "Believes the ball's velocity is zero at the highest point of its path. Only the vertical component (v·sinθ) is zero there — the horizontal component (v·cosθ) never changes, so the ball is still moving sideways at the peak.",
+  },
+  MASS: {
+    name: "MASS — “Heavier goes farther/shorter”",
+    description:
+      "Believes a projectile's mass changes how far it travels. With no air drag and no horizontal force, mass cancels out of the equations of motion entirely — it's a deliberate red herring in this lab.",
+  },
+  M3: {
+    name: "M3 — “Wind changes flight time”",
+    description:
+      "Believes a horizontal wind/force changes how long the ball stays in the air. It doesn't — the vertical motion (which sets the flight time) is independent of any horizontal push.",
+  },
+  M4: {
+    name: "M4 — “Mass never matters, even with wind”",
+    description:
+      "Correctly learned that mass doesn't matter without wind, then over-generalised that rule to the wind/force case too. Once a constant horizontal force F is acting, a = F/m — so a lighter ball accelerates more than a heavier one.",
+  },
+  NONE: {
+    name: "No misconception detected",
+    description: "The learner's answer didn't match any of the tracked misconception patterns.",
+  },
+};
+
 // --- Task feedback text (used verbatim) -------------------------------------
 export const FEEDBACK = {
   correctGeneral:

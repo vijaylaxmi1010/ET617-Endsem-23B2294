@@ -11,6 +11,7 @@ import { evaluateExplanation, displayFeedbackFor } from "../ai.js";
 let selectedTaskId = null;
 let nudgeTimer = null;
 let taskOpenedAt = null;
+let currentRoot = null;
 
 function isLocked(task) {
   if (!task.locked) return false;
@@ -29,14 +30,19 @@ function statusOf(task) {
 }
 
 export default function renderChallenge(root) {
-  paint(root);
-  nudgeTimer = setInterval(() => checkNudge(root), 10000);
+  currentRoot = root;
+  // Always land on the mission list first — a single task view is a
+  // separate "page" within this screen, entered only by explicitly opening
+  // a mission (see openTask / paintDetail below).
+  selectedTaskId = null;
+  paintList(root);
+  nudgeTimer = setInterval(() => checkNudge(), 10000);
   return function cleanup() {
     if (nudgeTimer) clearInterval(nudgeTimer);
   };
 }
 
-function checkNudge(root) {
+function checkNudge() {
   if (!selectedTaskId || !taskOpenedAt) return;
   const elapsed = (Date.now() - taskOpenedAt) / 1000;
   const box = document.getElementById("nudgeBox");
@@ -45,14 +51,14 @@ function checkNudge(root) {
   }
 }
 
-function paint(root) {
+// --- "Page" 1: the mission list ---------------------------------------
+function paintList(root) {
   root.innerHTML = `
     <div class="screen">
       <h1>Tasks &amp; Challenge</h1>
       <p class="lede">Nine missions, five formats. <strong>Can you beat them all?</strong> Some only unlock once you've proven yourself on the earlier ones.</p>
 
       <div id="missionList"></div>
-      <div id="taskDetail"></div>
 
       <div class="btn-row">
         <button class="btn btn--secondary" id="backBtn">Back</button>
@@ -67,6 +73,7 @@ function paint(root) {
 
 function renderMissionList() {
   const listEl = document.getElementById("missionList");
+  if (!listEl) return; // not on the list "page" right now — nothing to refresh
   listEl.innerHTML = TASKS.map((task) => {
     const status = statusOf(task);
     const label = status === "done" ? "Done ✓" : status === "locked" ? "Locked 🔒" : "Open";
@@ -84,22 +91,28 @@ function renderMissionList() {
     `;
   }).join("");
   listEl.querySelectorAll("button[data-task]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      selectedTaskId = btn.dataset.task;
-      taskOpenedAt = Date.now();
-      renderDetail();
-    });
+    btn.addEventListener("click", () => openTask(btn.dataset.task));
   });
 }
 
-function renderDetail() {
-  const detailEl = document.getElementById("taskDetail");
-  const task = TASKS.find((t) => t.id === selectedTaskId);
-  if (!task) { detailEl.innerHTML = ""; return; }
+// --- "Page" 2: a single task, full-screen (replaces the list entirely) ---
+function openTask(taskId) {
+  selectedTaskId = taskId;
+  taskOpenedAt = Date.now();
+  paintDetail(TASKS.find((t) => t.id === taskId));
+  window.scrollTo(0, 0);
+}
 
-  detailEl.innerHTML = `
-    <div class="card" id="taskDetailCard" style="border-color:#1f5fae;">
-      <h2>${task.id}: ${task.format}</h2>
+function paintDetail(task) {
+  const root = currentRoot;
+  root.innerHTML = `
+    <div class="screen">
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn btn--secondary" id="backToListBtn">← Back to missions</button>
+        <span class="spacer"></span>
+      </div>
+
+      <h1>${task.id}: ${task.format}</h1>
       <p>${task.prompt}</p>
       <div id="nudgeBox" class="box box--warning" hidden>
         ⏳ You've been on this one a while. Want a nudge? Try re-reading the component-breakdown box on the Hypothesis screen, or check your data table for a pattern.
@@ -107,17 +120,23 @@ function renderDetail() {
       <div id="prereqCardSlot"></div>
       <div id="taskBody"></div>
       <div id="taskFeedback"></div>
+
+      <div class="btn-row">
+        <button class="btn btn--secondary" id="backToListBtn2">← Back to missions</button>
+        <span class="spacer"></span>
+      </div>
     </div>
   `;
+  document.getElementById("backToListBtn").addEventListener("click", backToList);
+  document.getElementById("backToListBtn2").addEventListener("click", backToList);
 
   renderTaskBody(task);
   maybeShowPrereqCard();
+}
 
-  // The detail panel renders after the full 9-task list (see paint()), so
-  // on a long list it can open well below the fold with no visible change
-  // near the button that was just clicked. Scroll it into view so "Open
-  // mission" always visibly does something.
-  document.getElementById("taskDetailCard").scrollIntoView({ behavior: "smooth", block: "start" });
+function backToList() {
+  selectedTaskId = null;
+  paintList(currentRoot);
 }
 
 function maybeShowPrereqCard() {

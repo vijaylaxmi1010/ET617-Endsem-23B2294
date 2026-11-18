@@ -1,5 +1,5 @@
 // screens/teacher.js — Screen 9 (C5: teacher-in-the-loop)
-import { TASKS, HINT_LADDER_TITLES } from "../config.js";
+import { TASKS, HINT_LADDER_TITLES, MISCONCEPTION_LABELS } from "../config.js";
 import {
   loadState, saveState, resetState, updateAiLogDecision, recomputeOutcomes,
 } from "../state.js";
@@ -62,7 +62,16 @@ function paint(root) {
             </div>
 
             <h3>Misconception flags</h3>
-            ${Object.entries(s.misconceptions).map(([code, m]) => `<p><strong>${code}:</strong> ${m.flagged ? "⚠ flagged" : "not flagged"}${m.evidence ? ` — <em>${m.evidence}</em>` : ""}</p>`).join("")}
+            ${Object.entries(s.misconceptions)
+              .map(([code, m]) => {
+                const label = MISCONCEPTION_LABELS[code] || { name: code, description: "" };
+                return `<div class="box ${m.flagged ? "box--warning" : "box--info"}" style="margin:8px 0;">
+                  <p style="margin:0;"><strong>${label.name}</strong> — ${m.flagged ? "⚠ flagged for this learner" : "not flagged"}</p>
+                  <p class="lede" style="margin:4px 0 0; font-size:0.85rem;">${label.description}</p>
+                  ${m.evidence ? `<p style="margin:6px 0 0;"><strong>Evidence:</strong> <em>${m.evidence}</em></p>` : ""}
+                </div>`;
+              })
+              .join("")}
 
             <h3>Outcomes</h3>
             <div class="kv-grid">
@@ -191,7 +200,9 @@ function queueItemHTML(entry) {
         ${statusBadge}
       </div>
       <p><strong>Learner's answer:</strong> ${escapeHtml(entry.learnerAnswer || "")}</p>
-      <p><strong>AI verdict:</strong> ${vo.verdict || "—"} &nbsp; <strong>Misconception tag:</strong> ${vo.misconception || "—"} &nbsp; <strong>Rule-check:</strong> ${entry.fallbackUsed ? entry.fallbackLabel : "passed validation"}</p>
+      <p><strong>AI verdict:</strong> ${vo.verdict || "—"} &nbsp; <strong>Rule-check:</strong> ${entry.fallbackUsed ? entry.fallbackLabel : "passed validation"}</p>
+      <p><strong>Misconception:</strong> ${(MISCONCEPTION_LABELS[vo.misconception] || { name: vo.misconception || "—" }).name}</p>
+      ${vo.misconception && vo.misconception !== "NONE" ? `<p class="lede" style="font-size:0.85rem; margin-top:-6px;">${MISCONCEPTION_LABELS[vo.misconception].description}</p>` : ""}
       <p><strong>Hint shown:</strong> ${escapeHtml(vo.hint || "")}</p>
 
       <fieldset>
@@ -202,9 +213,9 @@ function queueItemHTML(entry) {
 
       <fieldset>
         <legend>Override</legend>
-        <label for="overrideTag_${entry.id}">Misconception tag</label>
+        <label for="overrideTag_${entry.id}">Misconception</label>
         <select id="overrideTag_${entry.id}">
-          ${["M1", "M2", "MASS", "M3", "M4", "NONE"].map((tag) => `<option value="${tag}" ${tag === vo.misconception ? "selected" : ""}>${tag}</option>`).join("")}
+          ${["M1", "M2", "MASS", "M3", "M4", "NONE"].map((tag) => `<option value="${tag}" ${tag === vo.misconception ? "selected" : ""}>${MISCONCEPTION_LABELS[tag].name}</option>`).join("")}
         </select>
         <textarea id="overrideText_${entry.id}" rows="2" placeholder="Write your own feedback…"></textarea>
         <button class="btn btn--secondary" id="overrideSave_${entry.id}">Save override</button>
