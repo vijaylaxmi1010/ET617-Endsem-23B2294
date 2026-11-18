@@ -1,5 +1,5 @@
 // screens/reflect.js — Screen 8: Reflect & Revise
-import { HYPOTHESIS_VARIABLES, HYPOTHESIS_DIRECTIONS, OUTCOMES } from "../config.js";
+import { HYPOTHESIS_VARIABLES, HYPOTHESIS_DIRECTIONS, OUTCOMES, PREDICTION_PROMPTS } from "../config.js";
 import { loadState, addHypothesis, recomputeOutcomes } from "../state.js";
 import { evaluateExplanation } from "../ai.js";
 
@@ -60,8 +60,8 @@ function paint(root) {
         </div>
         <div class="inline-fields">
           <div class="field">
-            <label for="revAngle">Revised prediction: best angle on flat ground?</label>
-            <input type="number" id="revAngle" min="0" max="90" step="1" />
+            <label for="revPrediction" id="revPredictionLabel">${PREDICTION_PROMPTS.angle.question}</label>
+            <input type="text" id="revPrediction" placeholder="${PREDICTION_PROMPTS.angle.placeholder}" />
           </div>
           <div class="field">
             <label for="revConfidence">Confidence (1–5)</label>
@@ -75,15 +75,14 @@ function paint(root) {
       <div id="revFeedback"></div>
 
       <h2>Progress summary</h2>
-      <div class="kv-grid">
-        ${OUTCOMES.map((o) => `
-          <div class="kv-tile">
-            <div class="kv-tile__num">${s.outcomes[o.id] ? "✓" : "…"}</div>
-            <div class="kv-tile__label">${o.id}: ${s.outcomes[o.id] ? "achieved" : "in progress"}</div>
-          </div>
-        `).join("")}
-      </div>
-      <p class="lede">${OUTCOMES.map((o) => `<strong>${o.id}:</strong> ${o.text}`).join("<br>")}</p>
+      <p class="lede">These track the three learning outcomes from the Welcome screen. Each card below says exactly what still needs doing.</p>
+      ${OUTCOMES.map((o) => `
+        <div class="box ${s.outcomes[o.id] ? "box--success" : "box--info"}">
+          <p style="margin:0;"><strong>${o.id}: ${s.outcomes[o.id] ? "✓ Achieved" : "… In progress"}</strong></p>
+          <p style="margin:6px 0 0;">${o.text}</p>
+          ${!s.outcomes[o.id] ? `<p style="margin:6px 0 0;"><strong>To complete this:</strong> ${o.howTo}</p>` : ""}
+        </div>
+      `).join("")}
 
       <div class="btn-row">
         <button class="btn btn--secondary" id="backBtn">Back to Challenge</button>
@@ -97,15 +96,31 @@ function paint(root) {
     document.getElementById("revConfidenceVal").textContent = confSlider.value;
   });
 
+  // The prediction question follows whichever variable the learner is
+  // actually hypothesising about here, instead of always asking about angle.
+  const revVariable = document.getElementById("revVariable");
+  const revPrediction = document.getElementById("revPrediction");
+  revVariable.addEventListener("change", () => {
+    const prompt = PREDICTION_PROMPTS[revVariable.value] || PREDICTION_PROMPTS.angle;
+    document.getElementById("revPredictionLabel").textContent = prompt.question;
+    revPrediction.placeholder = prompt.placeholder;
+    revPrediction.value = "";
+  });
+
   document.getElementById("revForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const reason = document.getElementById("revReason").value.trim();
     if (!reason) return;
+    const variable = revVariable.value;
+    const predictionValue = revPrediction.value.trim();
     const newHyp = addHypothesis({
-      variable: document.getElementById("revVariable").value,
+      variable,
       direction: document.getElementById("revDirection").value,
       reason,
-      predictionAngle: parseFloat(document.getElementById("revAngle").value) || null,
+      predictionValue: predictionValue || null,
+      // Kept for backward compatibility with code that reads predictionAngle
+      // (only meaningful when the prediction is actually about angle).
+      predictionAngle: variable === "angle" && predictionValue ? parseFloat(predictionValue) || null : null,
       confidence: parseInt(confSlider.value, 10),
     });
 
@@ -141,9 +156,15 @@ function renderPastRevisions(revisions) {
       .map((h) => {
         const logEntry = findAiLogForHypothesis(s, h);
         const badge = badgeForLog(logEntry);
+        const predictionLine = h.predictionValue
+          ? `<p>Prediction: <strong>${h.predictionValue}</strong>, confidence ${h.confidence}/5</p>`
+          : h.predictionAngle
+          ? `<p>Prediction: best angle = <strong>${h.predictionAngle}°</strong>, confidence ${h.confidence}/5</p>`
+          : "";
         return `<div class="card">
           <p><strong>${h.id}</strong> (${new Date(h.timestamp).toLocaleString()}) ${badge}</p>
           <p>If I change <strong>${h.variable}</strong>, the range will <strong>${h.direction}</strong>, because ${h.reason}</p>
+          ${predictionLine}
           ${logEntry ? `<p><em>Feedback:</em> ${logEntry.teacherDecision && logEntry.teacherDecision.text ? logEntry.teacherDecision.text : (logEntry.validatedOutput ? logEntry.validatedOutput.hint : "")}</p>` : ""}
         </div>`;
       })

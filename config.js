@@ -38,14 +38,17 @@ export const OUTCOMES = [
   {
     id: "O1",
     text: "Predict how range changes with launch angle at fixed speed and identify complementary-angle pairs (e.g. 30°/60°) that give equal range.",
+    howTo: "Get T1 correct (which of 30°/45°/60° goes farthest), then complete T2 — fire at 15°, 30°, 45°, 60°, 75° and note the complementary-pair pattern.",
   },
   {
     id: "O2",
     text: "Explain, using horizontal and vertical components, why 45° maximises range on level ground, and predict that the optimal angle falls below 45° when launching from a height.",
+    howTo: "Answer T4 correctly (the ball's velocity at the peak), then hit the T5 cliff target using an angle below 45°.",
   },
   {
     id: "O3",
     text: "Design a fair test (one variable at a time) and derive R ∝ v² from your own data table and graph.",
+    howTo: "Log at least 3 fair-test runs in the Lab (changing only one variable each time), get T3 correct (the ×4 factor), and open Graph B (Range vs v²) on the Graph screen.",
   },
 ];
 
@@ -102,6 +105,34 @@ export const HYPOTHESIS_DIRECTIONS = [
   "stay the same",
   "increase then decrease",
 ];
+
+// Used on the Reflect & Revise screen (H2+): the revision's prediction
+// question adapts to whichever variable the learner is hypothesising
+// about, instead of always asking about angle no matter what. (H1's fixed
+// "which angle…" question on the Hypothesis screen is separate, mandated
+// exact wording from the exam brief, and is intentionally left alone.)
+export const PREDICTION_PROMPTS = {
+  angle: {
+    question: "Revised prediction: which angle (°) will go farthest, at 20 m/s on flat ground?",
+    placeholder: "e.g. 45",
+    unit: "°",
+  },
+  speed: {
+    question: "Revised prediction: if you double the launch speed, by what factor does the range change?",
+    placeholder: "e.g. 4",
+    unit: "×",
+  },
+  mass: {
+    question: "Revised prediction: which mass (kg) will go farthest, all else equal?",
+    placeholder: "e.g. all the same, or a number",
+    unit: "",
+  },
+  "launch height": {
+    question: "Revised prediction: as launch height increases, does the best angle go up, down, or stay the same?",
+    placeholder: "e.g. down, below 45°",
+    unit: "",
+  },
+};
 
 // --- Hint ladders (Screen 5 — unsuccessful-experiment support) -------------
 // Never reveal the final numeric answer.
