@@ -112,6 +112,12 @@ function renderDetail() {
 
   renderTaskBody(task);
   maybeShowPrereqCard();
+
+  // The detail panel renders after the full 9-task list (see paint()), so
+  // on a long list it can open well below the fold with no visible change
+  // near the button that was just clicked. Scroll it into view so "Open
+  // mission" always visibly does something.
+  document.getElementById("taskDetailCard").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function maybeShowPrereqCard() {
