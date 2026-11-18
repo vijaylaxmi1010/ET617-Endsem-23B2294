@@ -4,7 +4,7 @@ import { simulate } from "../physics.js";
 import {
   loadState, saveState, getTask, setTask, addRun, flagMisconception,
   logHintRequest, hintLevelFor, recomputeOutcomes, isOlympiadUnlocked,
-  recordAnswerCorrectness,
+  recordAnswerCorrectness, setPendingLabPreset,
 } from "../state.js";
 import { evaluateExplanation, displayFeedbackFor } from "../ai.js";
 
@@ -19,7 +19,24 @@ let t5Attempts = []; // {theta, R, hit} — grows across launches so the T5 curv
 // stating a hint, re-run the actual physics for the options involved and
 // draw the comparison, so the learner sees the discrepancy in her own
 // simulated data rather than being told what the "right" value is.
-function renderBarChart(container, bars, caption) {
+// Appends a button that hands the given slider setup to the Lab screen (via
+// state.js's pending-preset handoff) and navigates there, so the learner can
+// explore the exact same inputs interactively instead of only seeing a
+// static chart.
+function appendSeeInLabButton(container, preset) {
+  if (!container || !preset) return;
+  const btn = document.createElement("button");
+  btn.className = "btn btn--secondary";
+  btn.style.cssText = "margin-top:10px; display:block;";
+  btn.textContent = "🔬 See it in the Lab";
+  btn.addEventListener("click", () => {
+    setPendingLabPreset(preset);
+    location.hash = "#/lab";
+  });
+  container.appendChild(btn);
+}
+
+function renderBarChart(container, bars, caption, labPreset) {
   if (!container) return;
   const maxVal = Math.max(...bars.map((b) => b.value), 0.0001) * 1.15;
   const canvas = document.createElement("canvas");
@@ -62,9 +79,10 @@ function renderBarChart(container, bars, caption) {
     cap.textContent = caption;
     container.appendChild(cap);
   }
+  appendSeeInLabButton(container, labPreset);
 }
 
-function renderAngleCurveChart(container, { v, h, g, flag, tolerance, attempts, caption }) {
+function renderAngleCurveChart(container, { v, h, g, flag, tolerance, attempts, caption, labPreset }) {
   if (!container) return;
   const pts = [];
   for (let a = 0; a <= 90; a += 3) {
@@ -130,6 +148,7 @@ function renderAngleCurveChart(container, { v, h, g, flag, tolerance, attempts, 
     cap.textContent = caption;
     container.appendChild(cap);
   }
+  appendSeeInLabButton(container, labPreset);
 }
 
 function isLocked(task) {
@@ -365,7 +384,9 @@ function renderT1(body, task) {
         const sim = simulate({ theta, v: 20, m: 1, h: 0, g: 9.8, F: 0 });
         return { label: opt, value: sim.R, highlight: opt === sel.value };
       });
-      renderBarChart(document.getElementById("t1Chart"), bars, "Your pick is in red, straight from the simulation. Compare the three bars — what do you notice?");
+      renderBarChart(document.getElementById("t1Chart"), bars, "Your pick is in red, straight from the simulation. Compare the three bars — what do you notice?", {
+        theta: parseFloat(sel.value), v: 20, m: 1, h: 0, g: 9.8, F: 0, sourceTaskId: "T1",
+      });
     } else {
       document.getElementById("t1Chart").innerHTML = "";
     }
@@ -404,17 +425,22 @@ function renderT2(body, task) {
     const correct = result.verdict === "correct";
     setTask("T2", { status: "done", attempts: getTask("T2").attempts + 1, correct, lastAnswer: text });
     applyAdaptivity("T2", correct, 3, 0);
-    renderAiFeedback(result, correct);
+    renderAiFeedback(result, correct, { theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 0, sourceTaskId: "T2" });
     renderMissionList();
   });
 }
 
-function renderAiFeedback(result, correct) {
+function renderAiFeedback(result, correct, labPreset) {
   const text = displayFeedbackFor(result);
   const badge = result.fallbackUsed
     ? `<span class="badge badge--provisional">${result.fallbackLabel}</span>`
     : `<span class="badge badge--provisional">Provisional – awaiting teacher review</span>`;
   showFeedback(`${badge}<p style="margin-top:8px;">${text}</p>`, correct ? "box--success" : "box--info");
+  if (!correct && labPreset) {
+    const holder = document.createElement("div");
+    document.getElementById("taskFeedback").appendChild(holder);
+    appendSeeInLabButton(holder, labPreset);
+  }
 }
 
 // --- T3: Numeric answer --------------------------------------------------
@@ -440,7 +466,8 @@ function renderT3(body, task) {
       renderBarChart(
         document.getElementById("t3Chart"),
         [{ label: "v=10 m/s", value: simLow.R }, { label: "v=20 m/s", value: simHigh.R, highlight: true }],
-        "Speed doubled, 10 → 20 m/s. Divide the second bar by the first — what factor do you get?"
+        "Speed doubled, 10 → 20 m/s. Divide the second bar by the first — what factor do you get?",
+        { theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 0, sourceTaskId: "T3" }
       );
     } else {
       document.getElementById("t3Chart").innerHTML = "";
@@ -470,7 +497,7 @@ function renderT4(body, task) {
     setTask("T4", { status: "done", attempts: getTask("T4").attempts + 1, correct, lastAnswer: text });
     if (result.misconception === "M2") flagMisconception("M2", `T4 answer: "${text}"`);
     applyAdaptivity("T4", correct, 3, 0);
-    renderAiFeedback(result, correct);
+    renderAiFeedback(result, correct, { theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 0, showComponents: true, sourceTaskId: "T4" });
     renderMissionList();
     maybeShowPrereqCard();
   });
@@ -510,6 +537,7 @@ function renderT5(body, task) {
     renderAngleCurveChart(document.getElementById("t5Chart"), {
       v, h, g: 9.8, flag, tolerance, attempts: t5Attempts,
       caption: hit ? "Your hits and misses so far, against the simulation's actual Range-vs-angle curve for this cliff." : "Each attempt is plotted against the real curve — where does the green flag zone actually sit?",
+      labPreset: { theta, v, m: 1, h, g: 9.8, F: 0, sourceTaskId: "T5", unlockHeight: true },
     });
 
     setTask("T5", { status: hit ? "done" : t.status, attempts, correct: hit, lastAnswer: `θ=${theta}°` });
@@ -563,7 +591,8 @@ function renderT6(body, task) {
       renderBarChart(
         document.getElementById("t6Chart"),
         [{ label: "Earth", value: earth.R }, { label: "Moon", value: sim.R, highlight: true }],
-        "Same launch, same angle, only g changed. How many times taller is the Moon bar?"
+        "Same launch, same angle, only g changed. How many times taller is the Moon bar?",
+        { theta: 45, v: 20, m: 1, h: 0, g: 1.62, F: 0, sourceTaskId: "T6", unlockOlympiad: true }
       );
     } else {
       document.getElementById("t6Chart").innerHTML = "";
@@ -611,7 +640,8 @@ function renderT7(body, task) {
       renderBarChart(
         document.getElementById("t7Chart"),
         [{ label: "No wind", value: noWind.R }, { label: "+2N wind", value: withWind.R, highlight: true }],
-        "Range clearly moved. Now look back at the Flight-time numbers above — did they move anywhere near as much?"
+        "Range clearly moved. Now look back at the Flight-time numbers above — did they move anywhere near as much?",
+        { theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 2, windMode: "force", sourceTaskId: "T7", unlockOlympiad: true }
       );
     } else {
       document.getElementById("t7Chart").innerHTML = "";
@@ -637,6 +667,7 @@ function renderT8(body, task) {
     <button class="btn btn--secondary" id="t8Submit">Submit explanation</button>
   `;
   let lastHit = false;
+  let lastTheta = 45;
   const thetaRange = document.getElementById("t8Theta");
   thetaRange.addEventListener("input", () => {
     document.getElementById("t8ThetaVal").textContent = thetaRange.value + "°";
@@ -646,6 +677,7 @@ function renderT8(body, task) {
     const sim = simulate({ v, theta, m, h: 0, g: 9.8, F, windMode: "force" });
     const hit = Math.abs(sim.R - flag) <= tolerance;
     lastHit = hit;
+    lastTheta = theta;
     addRun({ id: "run_" + Date.now(), timestamp: Date.now(), theta, v, m, h: 0, g: 9.8, F, windMode: "force", k: 0, R: sim.R, H: sim.H, T: sim.T, tPeak: sim.tPeak, varsChanged: ["angle"], fair: true, starred: false, taskId: "T8", hit });
     document.getElementById("t8Attempts").textContent = `Landed at ${sim.R.toFixed(2)} m. ${hit ? "🎯 Inside the flag zone!" : "Not quite."}`;
   });
@@ -658,7 +690,7 @@ function renderT8(body, task) {
     setTask("T8", { status: "done", attempts: getTask("T8").attempts + 1, correct, lastAnswer: text });
     recomputeOutcomes();
     renderMissionList();
-    renderAiFeedback(result, correct);
+    renderAiFeedback(result, correct, { theta: lastTheta, v, m, h: 0, g: 9.8, F, windMode: "force", sourceTaskId: "T8", unlockOlympiad: true });
   });
 }
 
@@ -693,7 +725,8 @@ function renderT9(body, task) {
           { label: "1 kg", value: light.R, highlight: sel.value === "5 kg" },
           { label: "5 kg", value: heavy.R, highlight: sel.value === "1 kg" },
         ],
-        "Same +2N wind, same launch, only the mass differs. Which bar is taller?"
+        "Same +2N wind, same launch, only the mass differs. Which bar is taller?",
+        { theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 2, windMode: "force", sourceTaskId: "T9", unlockOlympiad: true }
       );
     } else {
       document.getElementById("t9Chart").innerHTML = "";

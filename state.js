@@ -43,6 +43,10 @@ function defaultState() {
     outcomes: { O1: false, O2: false, O3: false },
     screenTime: {}, // screenHash -> seconds
     screenEnteredAt: null,
+    // Set by a Challenge task's "See it in the Lab" button, consumed once by
+    // the Lab screen on its next render: { theta, v, m, h, g, F, windMode,
+    // showComponents, unlockHeight, unlockOlympiad, sourceTaskId }.
+    pendingLabPreset: null,
     nudges: {}, // taskId -> shown boolean
     demoMode: null,
     graphBViewed: false,
@@ -225,6 +229,28 @@ export function recordAnswerCorrectness(correct) {
   s.consecutiveIncorrect = correct ? 0 : (s.consecutiveIncorrect || 0) + 1;
   saveState();
   return s.consecutiveIncorrect;
+}
+
+// --- "See it in the Lab" handoff (Challenge -> Lab) ------------------------
+// A wrong-answer chart in the Challenge screen can offer to open the exact
+// same setup in the full interactive Lab. Since both screens are plain ES
+// modules with no direct import relationship, the handoff goes through
+// state rather than router query params, so the Lab's existing route stays
+// a clean "#/lab" with no parsing of its own.
+export function setPendingLabPreset(preset) {
+  const s = loadState();
+  s.pendingLabPreset = preset;
+  saveState();
+}
+
+export function consumePendingLabPreset() {
+  const s = loadState();
+  const preset = s.pendingLabPreset || null;
+  if (preset) {
+    s.pendingLabPreset = null;
+    saveState();
+  }
+  return preset;
 }
 
 // --- Outcome evaluation (adaptivity §8) -----------------------------------

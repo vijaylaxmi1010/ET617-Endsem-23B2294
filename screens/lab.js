@@ -12,7 +12,7 @@ import { simulate, optimalAngleNoWind } from "../physics.js";
 import {
   loadState, saveState, addRun, clearRuns,
   logHintRequest, hintLevelFor, flagMisconception, recomputeOutcomes,
-  isOlympiadUnlocked,
+  isOlympiadUnlocked, consumePendingLabPreset,
 } from "../state.js";
 
 // --- Local (non-persisted) UI state for this screen -------------------------
@@ -336,6 +336,25 @@ function drawArrow(ctx, x1, y1, x2, y2, color) {
 
 // --- Main render ------------------------------------------------------
 export default function renderLab(root, opts) {
+  // A Challenge task's "See it in the Lab" button leaves a one-shot preset
+  // here — apply it (and any unlock it grants) before the lock checks below,
+  // so e.g. a T5 handoff can actually show a launch height even if the
+  // learner hasn't hit the target yet.
+  const preset = consumePendingLabPreset();
+  if (preset) {
+    const s0 = loadState();
+    if (preset.unlockHeight) s0.unlocks.height = true;
+    if (preset.unlockOlympiad) s0.unlocks.olympiad = true;
+    saveState();
+    ["theta", "v", "m", "h", "g", "F", "windMode"].forEach((key) => {
+      if (preset[key] !== undefined) lab[key] = preset[key];
+    });
+    if (preset.g !== undefined) {
+      lab.gName = Object.keys(G_PRESETS).find((name) => G_PRESETS[name] === preset.g) || lab.gName;
+    }
+    if (preset.showComponents !== undefined) lab.showComponents = preset.showComponents;
+  }
+
   const s = loadState();
   lab.hUnlocked = heightUnlocked();
   lab.olyUnlocked = olympiadUnlocked();
@@ -355,6 +374,8 @@ export default function renderLab(root, opts) {
     <div class="screen">
       <h1>The Lab</h1>
       <p class="lede">Set your variables, launch, and read the data. <strong>First</strong> try one change at a time — the table will warn you if you don't.</p>
+
+      ${preset ? `<div class="box box--info" role="status">📍 Loaded the setup from <strong>${preset.sourceTaskId}</strong>: θ=${preset.theta}°, v=${preset.v} m/s${preset.h !== undefined ? `, h=${preset.h} m` : ""}${preset.F !== undefined && preset.F !== 0 ? `, F=${preset.F} N` : ""}. Launch it and see for yourself.</div>` : ""}
 
       <div class="lab-grid">
         <div>
