@@ -91,6 +91,31 @@ function uniqueSorted(arr) {
   return [...new Set(arr)].sort((a, b) => a - b);
 }
 
+// Finds the combination of `keys` (e.g. v/h/g) that the most no-wind runs
+// actually share, so the filter dropdowns default to a combo with real data
+// instead of independently defaulting each dropdown to its own first sorted
+// value — which can land on a mix that matches zero runs (e.g. a learner
+// who also has a Moon-gravity run ends up with v from the flat sweep but g
+// from the Moon run, an empty-looking graph even though real fair-test data
+// exists at a different, valid combination).
+function bestCombo(runs, keys) {
+  const counts = new Map();
+  runs.filter((r) => r.F === 0).forEach((r) => {
+    const tupleKey = keys.map((k) => r[k]).join("|");
+    counts.set(tupleKey, (counts.get(tupleKey) || 0) + 1);
+  });
+  let best = null;
+  let bestCount = -1;
+  counts.forEach((count, key) => {
+    if (count > bestCount) { bestCount = count; best = key; }
+  });
+  if (!best) return null;
+  const parts = best.split("|").map(parseFloat);
+  const result = {};
+  keys.forEach((k, i) => { result[k] = parts[i]; });
+  return result;
+}
+
 // --- Graph A: Range vs Angle ------------------------------------------
 function setupGraphA(runs) {
   const vSel = document.getElementById("gaV");
@@ -99,9 +124,10 @@ function setupGraphA(runs) {
   const vs = uniqueSorted(runs.map((r) => r.v));
   const hs = uniqueSorted(runs.map((r) => r.h));
   const gs = uniqueSorted(runs.map((r) => r.g));
-  vSel.innerHTML = vs.map((v) => `<option value="${v}">${v} m/s</option>`).join("") || "<option>—</option>";
-  hSel.innerHTML = hs.map((h) => `<option value="${h}">${h} m</option>`).join("") || "<option>—</option>";
-  gSel.innerHTML = gs.map((g) => `<option value="${g}">${g} m/s²</option>`).join("") || "<option>—</option>";
+  const best = bestCombo(runs, ["v", "h", "g"]);
+  vSel.innerHTML = vs.map((v) => `<option value="${v}" ${best && v === best.v ? "selected" : ""}>${v} m/s</option>`).join("") || "<option>—</option>";
+  hSel.innerHTML = hs.map((h) => `<option value="${h}" ${best && h === best.h ? "selected" : ""}>${h} m</option>`).join("") || "<option>—</option>";
+  gSel.innerHTML = gs.map((g) => `<option value="${g}" ${best && g === best.g ? "selected" : ""}>${g} m/s²</option>`).join("") || "<option>—</option>";
 
   function redraw() {
     const vf = parseFloat(vSel.value), hf = parseFloat(hSel.value), gf = parseFloat(gSel.value);
@@ -170,9 +196,10 @@ function setupGraphB(runs) {
   const thetas = uniqueSorted(runs.map((r) => r.theta));
   const hs = uniqueSorted(runs.map((r) => r.h));
   const gs = uniqueSorted(runs.map((r) => r.g));
-  thetaSel.innerHTML = thetas.map((t) => `<option value="${t}">${t}°</option>`).join("") || "<option>—</option>";
-  hSel.innerHTML = hs.map((h) => `<option value="${h}">${h} m</option>`).join("") || "<option>—</option>";
-  gSel.innerHTML = gs.map((g) => `<option value="${g}">${g} m/s²</option>`).join("") || "<option>—</option>";
+  const best = bestCombo(runs, ["theta", "h", "g"]);
+  thetaSel.innerHTML = thetas.map((t) => `<option value="${t}" ${best && t === best.theta ? "selected" : ""}>${t}°</option>`).join("") || "<option>—</option>";
+  hSel.innerHTML = hs.map((h) => `<option value="${h}" ${best && h === best.h ? "selected" : ""}>${h} m</option>`).join("") || "<option>—</option>";
+  gSel.innerHTML = gs.map((g) => `<option value="${g}" ${best && g === best.g ? "selected" : ""}>${g} m/s²</option>`).join("") || "<option>—</option>";
 
   function redraw() {
     const tf = parseFloat(thetaSel.value), hf = parseFloat(hSel.value), gf = parseFloat(gSel.value);
