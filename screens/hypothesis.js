@@ -5,6 +5,17 @@ import { loadState, addHypothesis } from "../state.js";
 export default function renderHypothesis(root) {
   const s = loadState();
 
+  // This screen is for the learner's STARTING hypothesis only (H1). Once it
+  // exists, coming back here (e.g. via the top stepper nav) should not offer
+  // another identical blank form — that just silently piles up near-duplicate
+  // hypotheses with the same fixed prediction question. Revisions belong on
+  // the Reflect & Revise screen, which builds them from the learner's actual
+  // evidence instead of asking the same thing again from scratch.
+  if (s.hypotheses.length > 0) {
+    renderAlreadySaved(root, s.hypotheses);
+    return;
+  }
+
   root.innerHTML = `
     <div class="screen">
       <h1>Build your hypothesis</h1>
@@ -13,9 +24,7 @@ export default function renderHypothesis(root) {
         <p>${HYPOTHESIS_INTRO}</p>
       </div>
 
-      ${s.hypotheses.length ? renderHistory(s.hypotheses) : ""}
-
-      <h2>Hypothesis ${"H" + (s.hypotheses.length + 1)}</h2>
+      <h2>Hypothesis H1</h2>
       <form id="hypForm" class="card">
         <p style="font-size:1.05rem;">
           If I change
@@ -79,6 +88,37 @@ export default function renderHypothesis(root) {
     });
     location.hash = "#/lab";
   });
+}
+
+function renderAlreadySaved(root, hyps) {
+  const h1 = hyps[0];
+  root.innerHTML = `
+    <div class="screen">
+      <h1>Your hypothesis</h1>
+      <div class="box box--info">
+        <p>You've already saved your starting hypothesis. Test it in the Lab, then head to <strong>Reflect &amp; Revise</strong> once you have evidence — that's where you write H2 and beyond, based on your actual data rather than a guess.</p>
+      </div>
+
+      <h2>H1</h2>
+      <div class="card">
+        <p>If I change <strong>${h1.variable}</strong>, the range will <strong>${h1.direction}</strong>, because ${h1.reason}</p>
+        <p>Prediction: best angle = <strong>${h1.predictionAngle}°</strong>, confidence ${h1.confidence}/5</p>
+      </div>
+
+      ${hyps.length > 1 ? renderHistory(hyps.slice(1)) : ""}
+
+      <div class="btn-row">
+        <button class="btn btn--secondary" id="backBtn">Back</button>
+        <span style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn--secondary" id="toReflectBtn">Reflect &amp; revise</button>
+          <button class="btn btn--primary" id="toLabBtn">Go to the Lab</button>
+        </span>
+      </div>
+    </div>
+  `;
+  document.getElementById("backBtn").addEventListener("click", () => { location.hash = "#/diagnostic"; });
+  document.getElementById("toReflectBtn").addEventListener("click", () => { location.hash = "#/reflect"; });
+  document.getElementById("toLabBtn").addEventListener("click", () => { location.hash = "#/lab"; });
 }
 
 function renderHistory(hyps) {
