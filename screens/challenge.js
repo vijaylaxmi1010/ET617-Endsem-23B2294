@@ -12,6 +12,125 @@ let selectedTaskId = null;
 let nudgeTimer = null;
 let taskOpenedAt = null;
 let currentRoot = null;
+let t5Attempts = []; // {theta, R, hit} — grows across launches so the T5 curve chart builds up
+
+// --- Mini simulation-check charts ------------------------------------------
+// Shown automatically whenever an answer comes back wrong: instead of just
+// stating a hint, re-run the actual physics for the options involved and
+// draw the comparison, so the learner sees the discrepancy in her own
+// simulated data rather than being told what the "right" value is.
+function renderBarChart(container, bars, caption) {
+  if (!container) return;
+  const maxVal = Math.max(...bars.map((b) => b.value), 0.0001) * 1.15;
+  const canvas = document.createElement("canvas");
+  canvas.width = 360;
+  canvas.height = 190;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", caption || "Bar chart comparing simulated values for each option");
+  canvas.style.maxWidth = "100%";
+  container.innerHTML = "";
+  container.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  const pad = 34;
+  const gap = 18;
+  const barW = (canvas.width - pad * 2 - gap * (bars.length - 1)) / bars.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#5b6878";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, 8);
+  ctx.lineTo(pad, canvas.height - pad);
+  ctx.lineTo(canvas.width - 6, canvas.height - pad);
+  ctx.stroke();
+  bars.forEach((b, i) => {
+    const x = pad + i * (barW + gap);
+    const h = Math.max(2, (b.value / maxVal) * (canvas.height - pad - 16));
+    const y = canvas.height - pad - h;
+    ctx.fillStyle = b.highlight ? "#c0392b" : "#1f5fae";
+    ctx.fillRect(x, y, barW, h);
+    ctx.fillStyle = "#1b2530";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(b.label, x + barW / 2, canvas.height - pad + 16);
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText(b.value.toFixed(2), x + barW / 2, y - 6);
+  });
+  if (caption) {
+    const cap = document.createElement("p");
+    cap.className = "lede";
+    cap.style.cssText = "font-size:0.85rem; margin-top:8px;";
+    cap.textContent = caption;
+    container.appendChild(cap);
+  }
+}
+
+function renderAngleCurveChart(container, { v, h, g, flag, tolerance, attempts, caption }) {
+  if (!container) return;
+  const pts = [];
+  for (let a = 0; a <= 90; a += 3) {
+    const sim = simulate({ theta: a, v, m: 1, h, g, F: 0 });
+    pts.push({ theta: a, R: sim.R });
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 420;
+  canvas.height = 220;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", "Range versus angle from the simulation, with your attempts marked and the flag zone shaded");
+  canvas.style.maxWidth = "100%";
+  container.innerHTML = "";
+  container.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  const pad = 36;
+  const maxR = Math.max(...pts.map((p) => p.R), flag + tolerance) * 1.1;
+  const toXY = (theta, R) => [
+    pad + (theta / 90) * (canvas.width - pad - 10),
+    canvas.height - pad - (R / maxR) * (canvas.height - pad - 16),
+  ];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const [, yTop] = toXY(0, flag + tolerance);
+  const [, yBot] = toXY(0, flag - tolerance);
+  ctx.fillStyle = "rgba(47,125,82,0.18)";
+  ctx.fillRect(pad, yTop, canvas.width - pad - 10, yBot - yTop);
+  ctx.fillStyle = "#2f7d52";
+  ctx.font = "11px sans-serif";
+  ctx.fillText(`flag zone (${flag}±${tolerance} m)`, pad + 6, yTop - 4);
+  ctx.strokeStyle = "#5b6878";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, 8);
+  ctx.lineTo(pad, canvas.height - pad);
+  ctx.lineTo(canvas.width - 6, canvas.height - pad);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.strokeStyle = "#1f5fae";
+  ctx.lineWidth = 2;
+  pts.forEach((p, i) => {
+    const [x, y] = toXY(p.theta, p.R);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  attempts.forEach((att) => {
+    const [x, y] = toXY(att.theta, att.R);
+    ctx.fillStyle = att.hit ? "#2f7d52" : "#c0392b";
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+  ctx.fillStyle = "#1b2530";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("Angle (°) →", canvas.width - 8, canvas.height - 8);
+  if (caption) {
+    const cap = document.createElement("p");
+    cap.className = "lede";
+    cap.style.cssText = "font-size:0.85rem; margin-top:8px;";
+    cap.textContent = caption;
+    container.appendChild(cap);
+  }
+}
 
 function isLocked(task) {
   if (!task.locked) return false;
@@ -99,6 +218,7 @@ function renderMissionList() {
 function openTask(taskId) {
   selectedTaskId = taskId;
   taskOpenedAt = Date.now();
+  if (taskId === "T5") t5Attempts = [];
   paintDetail(TASKS.find((t) => t.id === taskId));
   window.scrollTo(0, 0);
 }
@@ -225,6 +345,7 @@ function renderT1(body, task) {
       <output id="t1ConfVal">3</output>
     </div>
     <button class="btn btn--primary" id="t1Submit">Submit</button>
+    <div id="t1Chart" style="margin-top:14px;"></div>
   `;
   document.getElementById("t1Conf").addEventListener("input", (e) => {
     document.getElementById("t1ConfVal").textContent = e.target.value;
@@ -237,7 +358,17 @@ function renderT1(body, task) {
     const prevAttempts = getTask("T1").attempts;
     setTask("T1", { status: "done", attempts: prevAttempts + 1, correct, confidence, lastAnswer: sel.value });
     applyAdaptivity("T1", correct, confidence, 0);
-    showFeedback(correct ? FEEDBACK.correctGeneral : "Not quite — check 30° and 60° too. Does one of them tie with another?", correct ? "box--success" : "box--warning");
+    showFeedback(correct ? FEEDBACK.correctGeneral : "Not quite — check 30° and 60° too. Does one of them tie with another? Here's what the simulation actually gives each angle:", correct ? "box--success" : "box--warning");
+    if (!correct) {
+      const bars = task.options.map((opt) => {
+        const theta = parseFloat(opt);
+        const sim = simulate({ theta, v: 20, m: 1, h: 0, g: 9.8, F: 0 });
+        return { label: opt, value: sim.R, highlight: opt === sel.value };
+      });
+      renderBarChart(document.getElementById("t1Chart"), bars, "Your pick is in red, straight from the simulation. Compare the three bars — what do you notice?");
+    } else {
+      document.getElementById("t1Chart").innerHTML = "";
+    }
     renderMissionList();
     maybeShowPrereqCard();
   });
@@ -294,6 +425,7 @@ function renderT3(body, task) {
       <input type="text" id="t3Answer" placeholder="e.g. 4 or ×4" />
     </div>
     <button class="btn btn--primary" id="t3Submit">Submit</button>
+    <div id="t3Chart" style="margin-top:14px;"></div>
   `;
   document.getElementById("t3Submit").addEventListener("click", () => {
     const raw = document.getElementById("t3Answer").value.trim().toLowerCase().replace(/\s+/g, "");
@@ -301,7 +433,18 @@ function renderT3(body, task) {
     const correct = task.acceptable.some((a) => raw === a.toLowerCase().replace(/\s+/g, "")) || raw.includes("4");
     setTask("T3", { status: "done", attempts: getTask("T3").attempts + 1, correct, lastAnswer: raw });
     applyAdaptivity("T3", correct, 3, 0);
-    showFeedback(correct ? FEEDBACK.correctGeneral : "Think about R = v²sin2θ/g — if v doubles, what happens to v²?", correct ? "box--success" : "box--warning");
+    showFeedback(correct ? FEEDBACK.correctGeneral : "Think about R = v²sin2θ/g — if v doubles, what happens to v²? Here are the two actual simulated ranges:", correct ? "box--success" : "box--warning");
+    if (!correct) {
+      const simLow = simulate({ theta: 45, v: 10, m: 1, h: 0, g: 9.8, F: 0 });
+      const simHigh = simulate({ theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 0 });
+      renderBarChart(
+        document.getElementById("t3Chart"),
+        [{ label: "v=10 m/s", value: simLow.R }, { label: "v=20 m/s", value: simHigh.R, highlight: true }],
+        "Speed doubled, 10 → 20 m/s. Divide the second bar by the first — what factor do you get?"
+      );
+    } else {
+      document.getElementById("t3Chart").innerHTML = "";
+    }
     renderMissionList();
     maybeShowPrereqCard();
   });
@@ -345,6 +488,7 @@ function renderT5(body, task) {
     <button class="btn btn--primary" id="t5Launch">🚀 Launch</button>
     <p id="t5Attempts" class="lede"></p>
     <div id="t5HintSlot"></div>
+    <div id="t5Chart" style="margin-top:14px;"></div>
   `;
   const thetaRange = document.getElementById("t5Theta");
   thetaRange.addEventListener("input", () => {
@@ -361,6 +505,12 @@ function renderT5(body, task) {
     const run = { id: "run_" + Date.now(), timestamp: Date.now(), theta, v, m: 1, h, g: 9.8, F: 0, windMode: "force", k: 0, R: sim.R, H: sim.H, T: sim.T, tPeak: sim.tPeak, varsChanged: ["angle"], fair: true, starred: false, taskId: "T5", hit };
     addRun(run);
     document.getElementById("t5Attempts").textContent = `Attempt ${attempts}: landed at ${sim.R.toFixed(2)} m.`;
+
+    t5Attempts.push({ theta, R: sim.R, hit });
+    renderAngleCurveChart(document.getElementById("t5Chart"), {
+      v, h, g: 9.8, flag, tolerance, attempts: t5Attempts,
+      caption: hit ? "Your hits and misses so far, against the simulation's actual Range-vs-angle curve for this cliff." : "Each attempt is plotted against the real curve — where does the green flag zone actually sit?",
+    });
 
     setTask("T5", { status: hit ? "done" : t.status, attempts, correct: hit, lastAnswer: `θ=${theta}°` });
     if (hit) {
@@ -396,9 +546,11 @@ function renderT6(body, task) {
     </div>
     <button class="btn btn--secondary" id="t6Test">Test it</button>
     <div id="t6Result"></div>
+    <div id="t6Chart" style="margin-top:14px;"></div>
   `;
   document.getElementById("t6Test").addEventListener("click", () => {
     const pred = parseFloat(document.getElementById("t6Pred").value);
+    const earth = simulate({ v: 20, theta: 45, m: 1, h: 0, g: 9.8, F: 0 });
     const sim = simulate({ v: 20, theta: 45, m: 1, h: 0, g: 1.62, F: 0 });
     const s = loadState();
     addRun({ id: "run_" + Date.now(), timestamp: Date.now(), theta: 45, v: 20, m: 1, h: 0, g: 1.62, F: 0, windMode: "force", k: 0, R: sim.R, H: sim.H, T: sim.T, tPeak: sim.tPeak, varsChanged: ["gravity"], fair: true, starred: false, taskId: "T6" });
@@ -406,7 +558,16 @@ function renderT6(body, task) {
     setTask("T6", { status: "done", attempts: getTask("T6").attempts + 1, correct, lastAnswer: String(pred) });
     recomputeOutcomes();
     renderMissionList();
-    document.getElementById("t6Result").innerHTML = `<div class="box ${correct ? "box--success" : "box--info"}">Actual Moon range: <strong>${sim.R.toFixed(2)} m</strong> (Earth's was about 40.82 m — that's roughly ×${(sim.R / 40.82).toFixed(2)}). ${correct ? "Great prediction!" : "How does g appear in R = v²sin2θ/g? What happens when g shrinks by ~6×?"}</div>`;
+    document.getElementById("t6Result").innerHTML = `<div class="box ${correct ? "box--success" : "box--info"}">Actual Moon range: <strong>${sim.R.toFixed(2)} m</strong> (Earth's is ${earth.R.toFixed(2)} m). ${correct ? "Great prediction!" : "How does g appear in R = v²sin2θ/g? What happens when g shrinks by ~6×?"}</div>`;
+    if (!correct) {
+      renderBarChart(
+        document.getElementById("t6Chart"),
+        [{ label: "Earth", value: earth.R }, { label: "Moon", value: sim.R, highlight: true }],
+        "Same launch, same angle, only g changed. How many times taller is the Moon bar?"
+      );
+    } else {
+      document.getElementById("t6Chart").innerHTML = "";
+    }
   });
 }
 
@@ -425,6 +586,7 @@ function renderT7(body, task) {
     </div>
     <button class="btn btn--secondary" id="t7Test">Test it</button>
     <div id="t7Result"></div>
+    <div id="t7Chart" style="margin-top:14px;"></div>
   `;
   document.getElementById("t7Test").addEventListener("click", () => {
     const timeSel = body.querySelector("input[name='t7time']:checked");
@@ -445,6 +607,15 @@ function renderT7(body, task) {
     let msg = `No wind: T=${noWind.T.toFixed(2)}s, R=${noWind.R.toFixed(2)}m. With +2N tailwind: T=${withWind.T.toFixed(2)}s, R=${withWind.R.toFixed(2)}m.<br>`;
     msg += timeCorrect ? "✓ You were right that flight time doesn't change — horizontal and vertical motion are independent." : "The flight time barely changed even with wind — why might a sideways push not affect how long gravity takes to pull the ball down?";
     document.getElementById("t7Result").innerHTML = `<div class="box ${correct ? "box--success" : "box--info"}">${msg}</div>`;
+    if (!correct) {
+      renderBarChart(
+        document.getElementById("t7Chart"),
+        [{ label: "No wind", value: noWind.R }, { label: "+2N wind", value: withWind.R, highlight: true }],
+        "Range clearly moved. Now look back at the Flight-time numbers above — did they move anywhere near as much?"
+      );
+    } else {
+      document.getElementById("t7Chart").innerHTML = "";
+    }
   });
 }
 
@@ -498,6 +669,7 @@ function renderT9(body, task) {
       ${task.options.map((o) => `<label class="mcq-option"><input type="radio" name="t9opt" value="${o}" /> ${o}</label>`).join("")}
     </div>
     <button class="btn btn--primary" id="t9Submit">Submit</button>
+    <div id="t9Chart" style="margin-top:14px;"></div>
   `;
   document.getElementById("t9Submit").addEventListener("click", () => {
     const sel = body.querySelector("input[name='t9opt']:checked");
@@ -510,7 +682,21 @@ function renderT9(body, task) {
     } else if (correct) {
       showFeedback(FEEDBACK.correctGeneral, "box--success");
     } else {
-      showFeedback("Think about a = F/m — which mass gets pushed harder by the same force?", "box--warning");
+      showFeedback("Think about a = F/m — which mass gets pushed harder by the same force? Here's what the simulation actually does:", "box--warning");
+    }
+    if (!correct) {
+      const light = simulate({ theta: 45, v: 20, m: 1, h: 0, g: 9.8, F: 2, windMode: "force" });
+      const heavy = simulate({ theta: 45, v: 20, m: 5, h: 0, g: 9.8, F: 2, windMode: "force" });
+      renderBarChart(
+        document.getElementById("t9Chart"),
+        [
+          { label: "1 kg", value: light.R, highlight: sel.value === "5 kg" },
+          { label: "5 kg", value: heavy.R, highlight: sel.value === "1 kg" },
+        ],
+        "Same +2N wind, same launch, only the mass differs. Which bar is taller?"
+      );
+    } else {
+      document.getElementById("t9Chart").innerHTML = "";
     }
     recomputeOutcomes();
     renderMissionList();
